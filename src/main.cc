@@ -1,148 +1,88 @@
 #include <gst/gst.h>
-#include <glib-unix.h>
+#include <iostream>
 
-#define HOST "127.0.0.1"
-#define PORT 1234//4953
-
-gboolean signal_handler (gpointer user_data)
+int main(int argc, char *argv[])
 {
-  GMainLoop *loop = (GMainLoop *) user_data;
+  GstElement *pipeline, *source, *encoder, *converter, *sink, *queue1, *queue2, *queue3, *flvmux;
+  GstBus *bus;
+  GstMessage *message;
+  GstStateChangeReturn ret;
 
-  g_print("closing the main loop");
-  g_main_loop_quit(loop);
+  gst_init(&argc, &argv);
 
-  return TRUE;
-}
+  converter = gst_element_factory_make("videoconvert", "converter");
+  encoder = gst_element_factory_make("x264enc", "encoder");
+  sink = gst_element_factory_make("rtmpsink", "sink");
+  queue1 = gst_element_factory_make("queue", "queue1");
+  queue2 = gst_element_factory_make("queue", "queue2");
+  queue3 = gst_element_factory_make("queue", "queue3");
+  flvmux = gst_element_factory_make("flvmux", "flvmux");
 
-int main (gint argc, gchar *argv[])
-{
-  GstElement *pipeline;
-  GstElement *src;
-  GstElement *videoconvert;
-  GstElement *videoscale;
-  GstElement *encoder;
-  GstElement *capsfilter;
-  GstElement *muxer;
-  GstElement *sink;
-  GstCaps *caps;
-  GMainLoop *loop;
-  gint ret = -1;
+  if (!converter || !encoder || !sink || !queue1 || !queue2 || !queue3 || !flvmux)
+  {
+    std::cerr << "Not all elements could be created." << std::endl;
 
-  gst_init(NULL, NULL);
+    return -1;
+  }
+
+  g_object_set(sink, "location", "rtmp://localhost/stream", NULL);
 
   pipeline = gst_pipeline_new("pipeline");
 
-  src = gst_element_factory_make("autovideosrc", "autovideosrc");
-  // src = gst_element_factory_make("device", "/dev/video2"); doesn't work
-
-  if (!src)
+  if (!pipeline)
   {
-    g_printerr("Failed to create src\n");
+    std::cerr << "Pipeline could not be created." << std::endl;
 
-    goto no_src;
+    return -1;
   }
 
-  videoconvert = gst_element_factory_make("videoconvert", "videoconvert");
+#if defined(_WIN32) || defined(_WIN64)
+  source = gst_element_factory_make("dx9screencapsrc", "source");
+#elif defined(__APPLE__)
+  source = gst_element_factory_make("avfvideosrc", "source");
+#else
+  source = gst_element_factory_make("ximagesrc", "source");
+#endif
 
-  if (!videoconvert)
+  if (!source)
   {
-    g_printerr("Failed to create videoconvert\n");
+    std::cerr << "Screen capture source could not be created." << std::endl;
+    gst_object_unref(pipeline);
 
-    goto no_videoconvert;
+    return -1;
   }
 
-  videoscale = gst_element_factory_make("videoscale", "videoscale");
+  gst_bin_add_many(GST_BIN(pipeline), source, converter, queue1, encoder, queue2, flvmux, queue3, sink, NULL);
 
-  if (!videoscale)
+  if (!gst_element_link_many(source, converter, queue1, encoder, queue2, flvmux, queue3, sink, NULL))
   {
-    g_printerr("Failed to create videoscale\n");
+    std::cerr << "Elements could not be linked" << std::endl;
+    gst_object_unref(pipeline);
 
-    goto no_videoscale;
+    return -1;
   }
 
-  capsfilter = gst_element_factory_make("capsfilter", "capsfilter");
+  ret = gst_element_set_state(pipeline, GST_STATE_PLAYING);
 
-  if (!capsfilter)
+  if (ret == GST_STATE_CHANGE_FAILURE)
   {
-    g_printerr("Failed to create capsfilter\n");
+    std::cerr << "Unable to set the pipeline to playing state" << std::endl;
+    gst_object_unref(pipeline);
 
-    goto no_caps;
+    return -1;
   }
 
-  caps = gst_caps_from_string("video/x-raw,width=1280,height=720");
-  g_object_set(capsfilter, "caps", caps, NULL);
-  gst_caps_unref(caps);
+  bus = gst_element_get_bus(pipeline);
+  message = gst_bus_timed_pop_filtered(bus, GST_CLOCK_TIME_NONE, GstMessageType(GST_MESSAGE_ERROR | GST_MESSAGE_EOS));
 
-  encoder = gst_element_factory_make("theoraenc", "theoraenc");
-
-  if (!encoder)
+  if (message != NULL)
   {
-    g_printerr("Failed to create encoder\n");
-
-    goto no_encoder;
+    gst_message_unref(message);
   }
 
-  muxer = gst_element_factory_make("oggmux", "oggmux");
-
-  if (!muxer)
-  {
-    g_printerr("Failed to create muxer\n");
-
-    goto no_muxer;
-  }
-
-  sink = gst_element_factory_make("tcpserversink", "tcpserversink");
-  // sink = gst_element_factory_make("udpsink", "udpsink");
-
-  if (!sink)
-  {
-    g_printerr("Failed to create sink\n");
-
-    goto no_sink;
-  }
-
-  g_object_set(sink, "host", HOST, "port", PORT, NULL);
-
-  gst_bin_add_many(GST_BIN(pipeline), src, videoconvert, videoscale, capsfilter, encoder, muxer, sink, NULL);
-  gst_element_link_many(src, videoconvert, videoscale, capsfilter, encoder, muxer, sink, NULL);
-  gst_pipeline_set_latency(GST_PIPELINE(pipeline), 0);
-
-  gst_element_set_state(pipeline, GST_STATE_PLAYING);
-  
-  g_print("Pipeline playing\n");
-
-  loop = g_main_loop_new(NULL, TRUE);
-  g_unix_signal_add(SIGINT, signal_handler, loop);
-  g_main_loop_run(loop);
-  g_main_loop_unref(loop);
-
+  gst_object_unref(bus);
   gst_element_set_state(pipeline, GST_STATE_NULL);
-  g_print("Closed succesfully\n");
-
-  ret = 0;
-  goto no_src;
-
-no_sink:
-  gst_object_unref(sink);
-
-no_muxer:
-  gst_object_unref(muxer);
-
-no_encoder:
-  gst_object_unref(encoder);
-
-no_caps:
-  gst_object_unref(capsfilter);
-
-no_videoscale:
-  gst_object_unref(videoscale);
-
-no_videoconvert:
-  gst_object_unref(videoconvert);
-
-no_src:
   gst_object_unref(pipeline);
-  gst_deinit();
 
-  return ret;
+  return 0;
 }
