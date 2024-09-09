@@ -6,7 +6,8 @@
                 "${workspaceFolder}/**",
                 "/usr/include/gstreamer-1.0/**",
                 "/usr/include/glib-2.0",
-                "/usr/lib/glib-2.0/include"
+                "/usr/lib/glib-2.0/include",
+                "/usr/include/gstreamer-1.0"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/clang",
