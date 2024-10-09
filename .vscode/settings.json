@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "h_hostfile": "plaintext",
+        "socket.h": "c",
+        "in.h": "c",
+        "types.h": "c",
+        "inet.h": "c",
+        "clientserver.h": "c",
+        "stdlib.h": "c"
+    }
+}

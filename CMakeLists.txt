@@ -11,7 +11,7 @@ include_directories(${GSTREAMER_INCLUDE_DIRS})
 link_directories(${GSTREAMER_LIBRARY_DIRS})
 
 # Add the executable
-add_executable(savon src/main.cc)
+add_executable(savon src/main.c src/client.c src/server.c)
 
 # Link the GStreamer libraries
 target_link_libraries(savon ${GSTREAMER_LIBRARIES} ${GSTREAMER_VIDEO_LIBRARIES})
