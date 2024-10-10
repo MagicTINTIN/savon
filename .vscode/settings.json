@@ -6,6 +6,8 @@
         "types.h": "c",
         "inet.h": "c",
         "clientserver.h": "c",
-        "stdlib.h": "c"
+        "stdlib.h": "c",
+        "videodev2.h": "c",
+        "unistd.h": "c"
     }
 }

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "clientserver.h"
 
 // HELP SECTION WITH OVERLOAD
@@ -10,11 +11,10 @@ void printHelp4(char const *progName, char const *errorDescription, char const *
     fprintf(stderr, "%s%s%s", errorDescription, precision, afterPrecision);
     printf("%s -h|--help\
    \n\t-s,--server\
-   \n\t-c|--client <serverIP>\
+   \n\t-c|--client <serverIP> <devicePath> <distantCamID> #ex: 192.168.0.2 /dev/video1 3\
    \n\t[Optional]\
    \n\t[-p|--port <port>]\
-   \n",
-           progName);
+   \n", progName);
     exit(0);
 }
 
@@ -37,7 +37,11 @@ int main(int argc, char const *argv[])
 {
     int serv = -1;
     int port = DEFAULT_PORT;
+
+    // client vars
     char distantAddress[256] = {0};
+    char localCam[64] = {0};
+    int distantCamID = -1;
     for (unsigned int i = 1; i < argc; i++)
     {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0)

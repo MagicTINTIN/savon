@@ -7,13 +7,20 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <fcntl.h>
 #include "clientserver.h"
-
-#define MAXLINE 1000
 
 int mainClient(const char *addr, int port)
 {
-    char buffer[100];
+    char buffer[FRAME_SIZE];
+
+    int fd = open("/dev/video1", O_RDWR); // Open the real webcam
+    if (fd == -1)
+    {
+        perror("Error opening webcam");
+        return -1;
+    }
+
     char *message = "Hello Server";
     int sockfd, n;
     struct sockaddr_in servaddr;
@@ -34,15 +41,20 @@ int mainClient(const char *addr, int port)
         exit(0);
     }
 
+    // waiting for response
+    // recvfrom(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr *)NULL, NULL);
+    // puts(buffer);
+
     // request to send datagram
     // no need to specify server address in sendto
     // connect stores the peers IP and port
-    sendto(sockfd, message, MAXLINE, 0, (struct sockaddr *)NULL, sizeof(servaddr));
-
-    // waiting for response
-    recvfrom(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr *)NULL, NULL);
-    puts(buffer);
+    while (1)
+    {
+        read(fd, buffer, FRAME_SIZE);
+        sendto(sockfd, message, FRAME_SIZE, 0, (struct sockaddr *)NULL, sizeof(servaddr));
+    }
 
     // close the descriptor
+    close(fd);
     close(sockfd);
 }
