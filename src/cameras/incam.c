@@ -1,4 +1,4 @@
-#include "webcam.h"
+#include "incam.h"
 #include <signal.h>
 #include <sys/ioctl.h>
 
@@ -80,7 +80,7 @@ static void handler(int sig, siginfo_t *si, void *unused)
  *
  * http://linuxtv.org/downloads/v4l-dvb-apis/colorspaces.html
  */
-static void convertToRGB(struct buffer buf, struct buffer *frame)
+static void convertYUYVToRGB(struct buffer buf, struct buffer *frame)
 {
     size_t i;
     uint8_t y, u, v;
@@ -140,35 +140,6 @@ static void convertToFrame(struct buffer buf, struct buffer *frame)
         printf("Buffer size: %d\n", buf.length);
     }
     memcpy(frame->start, buf.start, buf.length);
-
-    // Initialize frame
-    // if (frame->start == NULL) {
-    //     frame->length = buf.length / 2 * 3;
-    //     frame->start = calloc(frame->length, sizeof(char));
-    // }
-
-    // // Go through the YUYV buffer and calculate RGB pixels
-    // for (i = 0; i < buf.length; i += 2)
-    // {
-    //     uOffset = (i % 4 == 0) ? 1 : -1;
-    //     vOffset = (i % 4 == 2) ? 1 : -1;
-
-    //     y = buf.start[i];
-    //     u = (i + uOffset > 0 && i + uOffset < buf.length) ? buf.start[i + uOffset] : 0x80;
-    //     v = (i + vOffset > 0 && i + vOffset < buf.length) ? buf.start[i + vOffset] : 0x80;
-
-    //     Y =  (255.0 / 219.0) * (y - 0x10);
-    //     Pb = (255.0 / 224.0) * (u - 0x80);
-    //     Pr = (255.0 / 224.0) * (v - 0x80);
-
-    //     R = 1.0 * Y + 0.000 * Pb + 1.402 * Pr;
-    //     G = 1.0 * Y + 0.344 * Pb - 0.714 * Pr;
-    //     B = 1.0 * Y + 1.772 * Pb + 0.000 * Pr;
-
-    //     frame->start[i / 2 * 3    ] = clamp(R);
-    //     frame->start[i / 2 * 3 + 1] = clamp(G);
-    //     frame->start[i / 2 * 3 + 2] = clamp(B);
-    // }
 }
 
 /**
@@ -543,7 +514,7 @@ void old_webcam_read(struct webcam *w)
 
         // Lock frame mutex, and store RGB
         pthread_mutex_lock(&w->mtx_frame);
-        convertToRGB(w->buffers[buf.index], &w->frame);
+        convertYUYVToRGB(w->buffers[buf.index], &w->frame);
         pthread_mutex_unlock(&w->mtx_frame);
         break;
     }

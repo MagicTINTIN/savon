@@ -6,9 +6,9 @@
 #include <sys/ioctl.h>
 #include <arpa/inet.h>
 #include <errno.h>
-#include "webcam.h"
 #include <bits/socket.h>
 #include <netinet/tcp.h>
+#include "../cameras/incam.h"
 #define SA struct sockaddr
 
 #define SERVER_IP "127.0.0.1"
@@ -17,7 +17,7 @@
 #define HEADER 4
 #define BUFFER_SIZE (BUFFER_SIZE_W_END_BYTE - HEADER) // UDP max size - header size
 
-int main(int argc, char **argv)
+int mainClient(const char *addr, int port)
 {
     int i = 0;
     webcam_t *w = webcam_open("/dev/video0");
@@ -61,7 +61,7 @@ int main(int argc, char **argv)
     webcam_resize(w, 1280, 720);
     webcam_stream(w, true);
 
-    if (argc == 2 && strcmp(argv[1], "stop") == 0)
+    if (strncmp(addr, "stop", 4) == 0)
     {
         webcam_stream(w, false);
         webcam_close(w);

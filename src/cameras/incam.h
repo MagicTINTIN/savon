@@ -1,21 +1,5 @@
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-
-#include <assert.h>
-#include <pthread.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <errno.h>
-#include <string.h>
-#include <unistd.h>
-
-#include <linux/videodev2.h>
-
-#define CLEAR(x) memset(&(x), 0, sizeof(x))
+#pragma once
+#include "cameras.h"
 
 /**
  * Buffer structure

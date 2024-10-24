@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "clientserver.h"
+#include "network/clientserver.h"
 
 // HELP SECTION WITH OVERLOAD
 

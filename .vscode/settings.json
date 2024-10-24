@@ -9,6 +9,7 @@
         "stdlib.h": "c",
         "videodev2.h": "c",
         "unistd.h": "c",
-        "webcam.h": "c"
+        "webcam.h": "c",
+        "incam.h": "c"
     }
 }

@@ -10,5 +10,3 @@
 
 int mainClient(const char *addr, int port);
 int mainServer(int port);
-
-int createVirtualCams(const int channels[], const char* names[], int channelsCount);

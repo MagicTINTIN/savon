@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "clientserver.h"
+#include "../network/clientserver.h"
 
 int createVirtualCams(const int channels[], const char *names[], int channelsCount)
 {
