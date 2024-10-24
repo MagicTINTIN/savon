@@ -8,6 +8,7 @@
         "clientserver.h": "c",
         "stdlib.h": "c",
         "videodev2.h": "c",
-        "unistd.h": "c"
+        "unistd.h": "c",
+        "webcam.h": "c"
     }
 }
