@@ -2,6 +2,11 @@
 #include <signal.h>
 #include <sys/ioctl.h>
 
+/*
+ * Modified code to grab frames from webcam by wthielen
+ * https://github.com/wthielen/Webcam
+ */
+
 /**
  * Keeping tabs on opened webcam devices
  */
@@ -27,22 +32,6 @@ static int _ioctl(int fh, int request, void *arg)
     {
         r = ioctl(fh, request, arg);
     } while (-1 == r && EINTR == errno);
-
-    return r;
-}
-
-/**
- * Private function to clamp a double value to the nearest int
- * between 0 and 255
- */
-static uint8_t clamp(double x)
-{
-    int r = x;
-
-    if (r < 0)
-        return 0;
-    else if (r > 255)
-        return 255;
 
     return r;
 }
@@ -75,8 +64,31 @@ static void handler(int sig, siginfo_t *si, void *unused)
 }
 
 /**
+ * Clamp a double value to the nearest int
+ * between 0 and 255
+ * @param x double
+ * @returns uint8
+ * 
+ * TODO: remove it
+ * @deprecated unused
+ */
+static uint8_t clamp(double x)
+{
+    int r = x;
+
+    if (r < 0)
+        return 0;
+    else if (r > 255)
+        return 255;
+
+    return r;
+}
+
+/**
  * Private function to convert a YUYV buffer to a RGB frame and store it
  * within the given buffer structure
+ * TODO: remove it
+ * @deprecated unused
  *
  * http://linuxtv.org/downloads/v4l-dvb-apis/colorspaces.html
  */
@@ -122,16 +134,18 @@ static void convertYUYVToRGB(struct buffer buf, struct buffer *frame)
     }
 }
 
-static void convertToFrame(struct buffer buf, struct buffer *frame)
+/**
+ * Create frame buffer and store buf data in it
+ * @param buf from
+ * @param frame to
+ */
+static void storeFrameBuffer(struct buffer buf, struct buffer *frame)
 {
     size_t i;
     uint8_t y, u, v;
 
     int uOffset = 0;
     int vOffset = 0;
-
-    // double R, G, B;
-    // double Y, Pb, Pr;
 
     if (frame->start == NULL)
     {
@@ -143,49 +157,10 @@ static void convertToFrame(struct buffer buf, struct buffer *frame)
 }
 
 /**
- * Private function to equalize the Y-histogram for contrast
- * using a cumulative distribution function
- *
- * Thought this would fix the colors in the first instance,
- * but it did not. Nevertheless a good function to keep.
- *
- * http://en.wikipedia.org/wiki/Histogram_equalization
- */
-static void equalize(struct buffer *buf)
-{
-    size_t i;
-    uint16_t depth = 1 << 8;
-    uint8_t value;
-
-    size_t *histogram = calloc(depth, sizeof(size_t));
-    size_t *cdf = calloc(depth, sizeof(size_t));
-    size_t cdf_min = 0;
-
-    // Skip CbCr components
-    for (i = 0; i < buf->length; i += 2)
-    {
-        histogram[buf->start[i]]++;
-    }
-
-    // Create cumulative distribution
-    for (i = 0; i < depth; i++)
-    {
-        cdf[i] = 0 == i ? histogram[i] : cdf[i - 1] + histogram[i];
-        if (cdf_min == 0 && cdf[i] > 0)
-            cdf_min = cdf[i];
-    }
-
-    // Equalize the Y values
-    for (i = 0; i < buf->length; i += 2)
-    {
-        value = buf->start[i];
-        buf->start[i] = 1.0 * (cdf[value] - cdf_min) / (buf->length / 2 - cdf_min) * (depth - 1);
-    }
-}
-
-/**
  * Open the webcam on the given device and return a webcam
  * structure.
+ * @param dev name (eg. /dev/video0)
+ * @returns webcam pointer
  */
 struct webcam *webcam_open(const char *dev)
 {
@@ -301,8 +276,8 @@ struct webcam *webcam_open(const char *dev)
 
 /**
  * Closes the webcam
- *
- * Also releases the buffers, and frees up memory
+ * (releases the buffers, and frees up memory)
+ * @param w webcam pointer
  */
 void webcam_close(webcam_t *w)
 {
@@ -329,6 +304,9 @@ void webcam_close(webcam_t *w)
 
 /**
  * Sets the webcam to capture at the given width and height
+ * @param w webcam pointer
+ * @param width
+ * @param heigh
  */
 void webcam_resize(webcam_t *w, uint16_t width, uint16_t height)
 {
@@ -341,6 +319,7 @@ void webcam_resize(webcam_t *w, uint16_t width, uint16_t height)
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     fmt.fmt.pix.width = width;
     fmt.fmt.pix.height = height;
+    // TODO: configuratble pix format & colorspace
     // fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
     fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
     fmt.fmt.pix.colorspace = V4L2_COLORSPACE_REC709;
@@ -434,8 +413,8 @@ void webcam_resize(webcam_t *w, uint16_t width, uint16_t height)
 }
 
 /**
- * Reads a frame from the webcam, converts it into the RGB colorspace
- * and stores it in the webcam structure
+ * Reads a frame from the webcam and stores it in the webcam structure
+ * @param w webcam pointer
  */
 void webcam_read(struct webcam *w)
 {
@@ -470,7 +449,7 @@ void webcam_read(struct webcam *w)
         pthread_mutex_lock(&w->mtx_frame);
         // memcpy(&w->v4l2buf, &buf, sizeof(buf));
         // convertToRGB(w->buffers[buf.index], &w->frame);
-        convertToFrame(w->buffers[buf.index], &w->frame);
+        storeFrameBuffer(w->buffers[buf.index], &w->frame);
         pthread_mutex_unlock(&w->mtx_frame);
         break;
     }
@@ -483,7 +462,13 @@ void webcam_read(struct webcam *w)
     }
 }
 
-void old_webcam_read(struct webcam *w)
+/**
+ * Read webcam frame, convert it to RGB, then store it
+ * TODO: Remove
+ * @param w webcam pointer
+ * @deprecated Not used
+ */
+void rgb_webcam_read(struct webcam *w)
 {
     struct v4l2_buffer buf;
 
@@ -545,6 +530,8 @@ static void *webcam_streaming(void *ptr)
  * a thread running the webcam_streaming function.
  * When exiting the streaming mode, it sets the streaming
  * bit to false, and waits for the thread to finish.
+ * @param w webcam pointer
+ * @param flag true: streaming | false: not sreaming
  */
 void webcam_stream(struct webcam *w, bool flag)
 {
@@ -598,6 +585,9 @@ void webcam_stream(struct webcam *w, bool flag)
     }
 }
 
+/**
+ * Grab last frame from webcam and copy it to your frame buffer (it allocs it if not already done)
+ */
 void webcam_grab(webcam_t *w, buffer_t *frame)
 {
     // Locks the frame mutex so the grabber can copy
@@ -622,6 +612,7 @@ void webcam_grab(webcam_t *w, buffer_t *frame)
 
 /**
  * Main code
+ * TODO: remove unused
  */
 #ifdef WEBCAM_TEST
 int main(int argc, char **argv)
