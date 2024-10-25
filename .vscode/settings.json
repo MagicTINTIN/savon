@@ -10,6 +10,7 @@
         "videodev2.h": "c",
         "unistd.h": "c",
         "webcam.h": "c",
-        "incam.h": "c"
+        "incam.h": "c",
+        "signal.h": "c"
     }
 }

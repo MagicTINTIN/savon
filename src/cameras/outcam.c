@@ -2,6 +2,8 @@
 
 /**
  * Open device to write video
+ * @param dev name (eg. /dev/video10)
+ * @returns 0: success | -1: fail
  */
 int webcam_output_open_write(const char *dev)
 {
@@ -14,6 +16,10 @@ int webcam_output_open_write(const char *dev)
     return fd;
 }
 
+/**
+ * Print webcam device description
+ * @param fd webcam device file descriptor
+ */
 void print_format_info(int fd)
 {
     struct v4l2_format fmt;
@@ -39,6 +45,10 @@ void print_format_info(int fd)
     printf("Quantization      : %d\n", fmt.fmt.pix.quantization);
 }
 
+/**
+ * @deprecated FIXME: function should not be necessarily called
+ * @param fd webcam device file descriptor
+ */
 int force_transfer_and_encoding(int fd)
 {
     struct v4l2_format fmt;
@@ -53,6 +63,7 @@ int force_transfer_and_encoding(int fd)
         return -1;
     }
 
+    // TODO: Configuratble pix fmt & colorspace
     fmt.fmt.pix.ycbcr_enc = V4L2_YCBCR_ENC_601;
     fmt.fmt.pix.xfer_func = V4L2_XFER_FUNC_709;
     fmt.fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
@@ -67,11 +78,19 @@ int force_transfer_and_encoding(int fd)
     return 0;
 }
 
+/**
+ * Configure webcam format
+ * @param fd webcam device file descriptor
+ * @param width
+ * @param height
+ * @returns 0: success | -1: fail
+ */
 int webcam_output_set_format(int fd, uint16_t width, uint16_t height)
 {
     struct v4l2_format fmt;
     CLEAR(fmt);
 
+    // TODO: Configuratble pix fmt & colorspace
     fmt.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
     fmt.fmt.pix.width = width;
     fmt.fmt.pix.height = height;
@@ -96,6 +115,13 @@ int webcam_output_set_format(int fd, uint16_t width, uint16_t height)
     return 0;
 }
 
+/**
+ * Writes frame_data to webcam file descriptor
+ * @param fd webcam device file descriptor
+ * @param frame_data buffer containing frame data
+ * @param frame_size size of the buffer
+ * @returns 0: success | -1: fail
+ */
 int webcam_output_write_frame(int fd, const void *frame_data, size_t frame_size)
 {
     ssize_t bytes_written = write(fd, frame_data, frame_size);

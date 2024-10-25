@@ -1,6 +1,11 @@
 #pragma once
 #include "cameras.h"
 
+/*
+ * Modified code to grab frames from webcam by wthielen
+ * https://github.com/wthielen/Webcam
+ */
+
 /**
  * Buffer structure
  */
@@ -38,4 +43,3 @@ void webcam_resize(webcam_t *w, uint16_t width, uint16_t height);
 void webcam_stream(webcam_t *w, bool flag);
 void webcam_grab(webcam_t *w, buffer_t *frame);
 void webcam_read(struct webcam *w);
-// void convertToRGB(struct buffer buf, struct buffer *frame);

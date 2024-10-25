@@ -64,77 +64,6 @@ static void handler(int sig, siginfo_t *si, void *unused)
 }
 
 /**
- * Clamp a double value to the nearest int
- * between 0 and 255
- * @param x double
- * @returns uint8
- * 
- * TODO: remove it
- * @deprecated unused
- */
-static uint8_t clamp(double x)
-{
-    int r = x;
-
-    if (r < 0)
-        return 0;
-    else if (r > 255)
-        return 255;
-
-    return r;
-}
-
-/**
- * Private function to convert a YUYV buffer to a RGB frame and store it
- * within the given buffer structure
- * TODO: remove it
- * @deprecated unused
- *
- * http://linuxtv.org/downloads/v4l-dvb-apis/colorspaces.html
- */
-static void convertYUYVToRGB(struct buffer buf, struct buffer *frame)
-{
-    size_t i;
-    uint8_t y, u, v;
-
-    int uOffset = 0;
-    int vOffset = 0;
-
-    double R, G, B;
-    double Y, Pb, Pr;
-
-    // Initialize frame
-    if (frame->start == NULL)
-    {
-        frame->length = buf.length / 2 * 3;
-        frame->start = calloc(frame->length, sizeof(char));
-    }
-
-    // Go through the YUYV buffer and calculate RGB pixels
-    for (i = 0; i < buf.length; i += 2)
-    {
-        uOffset = (i % 4 == 0) ? 1 : -1;
-        vOffset = (i % 4 == 2) ? 1 : -1;
-
-        y = buf.start[i];
-        u = (i + uOffset > 0 && i + uOffset < buf.length) ? buf.start[i + uOffset] : 0x80;
-        v = (i + vOffset > 0 && i + vOffset < buf.length) ? buf.start[i + vOffset] : 0x80;
-
-        Y = (255.0 / 219.0) * (y - 0x10);
-        Pb = (255.0 / 224.0) * (u - 0x80);
-        Pr = (255.0 / 224.0) * (v - 0x80);
-
-        R = 1.0 * Y + 0.000 * Pb + 1.402 * Pr;
-        G = 1.0 * Y + 0.344 * Pb - 0.714 * Pr;
-        B = 1.0 * Y + 1.772 * Pb + 0.000 * Pr;
-
-        frame->start[i / 2 * 3] = clamp(R);
-        frame->start[i / 2 * 3 + 1] = clamp(G);
-        frame->start[i / 2 * 3 + 2] = clamp(B);
-    }
-}
-
-/**
  * Create frame buffer and store buf data in it
  * @param buf from
  * @param frame to
@@ -302,6 +231,8 @@ void webcam_close(webcam_t *w)
     free(w);
 }
 
+// TODO: ADD webcam g fmt
+
 /**
  * Sets the webcam to capture at the given width and height
  * @param w webcam pointer
@@ -463,56 +394,6 @@ void webcam_read(struct webcam *w)
 }
 
 /**
- * Read webcam frame, convert it to RGB, then store it
- * TODO: Remove
- * @param w webcam pointer
- * @deprecated Not used
- */
-void rgb_webcam_read(struct webcam *w)
-{
-    struct v4l2_buffer buf;
-
-    // Try getting an image from the device
-    for (;;)
-    {
-        CLEAR(buf);
-        buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-        buf.memory = V4L2_MEMORY_MMAP;
-
-        // Dequeue a (filled) buffer from the video device
-        if (-1 == _ioctl(w->fd, VIDIOC_DQBUF, &buf))
-        {
-            switch (errno)
-            {
-            case EAGAIN:
-                continue;
-
-            case EIO:
-            default:
-                fprintf(stderr, "%d: Could not read from device %s\n", errno, w->name);
-                break;
-            }
-        }
-
-        // Make sure we are not out of bounds
-        assert(buf.index < w->nbuffers);
-
-        // Lock frame mutex, and store RGB
-        pthread_mutex_lock(&w->mtx_frame);
-        convertYUYVToRGB(w->buffers[buf.index], &w->frame);
-        pthread_mutex_unlock(&w->mtx_frame);
-        break;
-    }
-
-    // Queue buffer back into the video device
-    if (-1 == _ioctl(w->fd, VIDIOC_QBUF, &buf))
-    {
-        fprintf(stderr, "Error while swapping buffers on %s\n", w->name);
-        return;
-    }
-}
-
-/**
  * The loop function for the webcam thread
  */
 static void *webcam_streaming(void *ptr)
@@ -533,7 +414,7 @@ static void *webcam_streaming(void *ptr)
  * @param w webcam pointer
  * @param flag true: streaming | false: not sreaming
  */
-void webcam_stream(struct webcam *w, bool flag)
+void webcam_stream(webcam_t *w, bool flag)
 {
     uint8_t i;
 
@@ -587,6 +468,8 @@ void webcam_stream(struct webcam *w, bool flag)
 
 /**
  * Grab last frame from webcam and copy it to your frame buffer (it allocs it if not already done)
+ * @param w webcam pointer
+ * @param frame buffer pointer
  */
 void webcam_grab(webcam_t *w, buffer_t *frame)
 {
@@ -609,51 +492,3 @@ void webcam_grab(webcam_t *w, buffer_t *frame)
 
     pthread_mutex_unlock(&w->mtx_frame);
 }
-
-/**
- * Main code
- * TODO: remove unused
- */
-#ifdef WEBCAM_TEST
-int main(int argc, char **argv)
-{
-    int i = 0;
-    webcam_t *w = webcam_open("/dev/video0");
-
-    // Prepare frame, and filename, and file to store frame in
-    buffer_t frame;
-    frame.start = NULL;
-    frame.length = 0;
-
-    char *fn = calloc(16, sizeof(char));
-    FILE *fp;
-
-    webcam_resize(w, 640, 480);
-    webcam_stream(w, true);
-    while (true)
-    {
-        webcam_grab(w, &frame);
-
-        if (frame.length > 0)
-        {
-            printf("Storing frame %d\n", i);
-            sprintf(fn, "frame_%d.rgb", i);
-            fp = fopen(fn, "w+");
-            fwrite(frame.start, frame.length, 1, fp);
-            fclose(fp);
-            i++;
-        }
-
-        if (i > 10)
-            break;
-    }
-    webcam_stream(w, false);
-    webcam_close(w);
-
-    if (frame.start != NULL)
-        free(frame.start);
-    free(fn);
-
-    return 0;
-}
-#endif
