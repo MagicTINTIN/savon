@@ -1,0 +1,16 @@
+{
+    "files.associations": {
+        "h_hostfile": "plaintext",
+        "socket.h": "c",
+        "in.h": "c",
+        "types.h": "c",
+        "inet.h": "c",
+        "clientserver.h": "c",
+        "stdlib.h": "c",
+        "videodev2.h": "c",
+        "unistd.h": "c",
+        "webcam.h": "c",
+        "incam.h": "c",
+        "signal.h": "c"
+    }
+}
